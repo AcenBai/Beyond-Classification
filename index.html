@@ -25,6 +25,13 @@
   <script src="./static/js/bulma-carousel.min.js"></script>
   <script src="./static/js/bulma-slider.min.js"></script>
   <script src="./static/js/index.js"></script>
+  <script>
+    MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 </head>
 <body>
 
@@ -521,6 +528,128 @@
                  style="width:85%; height:auto;" />
             <p class="is-size-7">Foreground-background AUC of patch evidence</p>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Theoretical Analysis (Appendix) -->
+    <div class="columns is-centered" style="margin-top:2rem;">
+      <div class="column is-full-width">
+        <h2 class="title is-3">Theoretical Analysis</h2>
+        <div class="content has-text-justified">
+          <p>
+            Why do globally supervised ViTs prefer background shortcuts?
+            We sketch the appendix analysis with a simplified single-layer linear attention
+            model, showing that routing through homogeneous background patches is a
+            <b>high-SNR, easily accessible local minimum</b> under SGD.
+          </p>
+
+          <h3 class="title is-5">Linear attention + global pooling</h3>
+          <p>
+            With patches \(X=[x_1,\ldots,x_N]^\top\) and attention weights
+            \(W=W_QW_K^\top\), a Softmax-free attention layer yields
+          </p>
+          \[
+            Z = X + XWX^\top X,
+          \]
+          \[
+            \bar{z}
+            =
+            \bar{x}
+            +
+            \frac{1}{N}\sum_{i=1}^{N}\sum_{j=1}^{N}(x_i^\top W x_j)\,x_j.
+          \]
+          With head \(\theta\) and MSE loss \(\mathcal{L}=\tfrac12(\theta^\top\bar{z}-y^*)^2\),
+          the gradient over \(W\) decomposes into competing foreground / background terms:
+          \[
+            \nabla_W\mathcal{L}
+            =
+            e\cdot\bar{x}
+            \Bigg(
+              \underbrace{\sum_{f\in\mathcal{F}}(\theta^\top x_f)x_f^\top}_{\Delta W_{fg}}
+              +
+              \underbrace{\sum_{b\in\mathcal{B}}(\theta^\top x_b)x_b^\top}_{\Delta W_{bg}}
+            \Bigg).
+          \]
+
+          <h3 class="title is-5">SNR of the two paths</h3>
+          <p>
+            Treat foreground patches as high-variance semantic features
+            \(x_f\sim\mathcal{N}(\mu_y,\Sigma_{fg})\) and background patches as nearly constant
+            \(x_b\sim\mathcal{N}(c,\sigma_{bg}^2 I)\) with \(\sigma_{bg}\to 0\). Then
+          </p>
+          \[
+            \mathbb{E}[\Delta W_{bg}]\approx N_b(\theta^\top c)c^\top,
+            \qquad
+            \mathbb{V}[\Delta W_{bg}]\approx 0,
+          \]
+          while the foreground update has large covariance noise
+          \(\mathbb{V}[\Delta W_{fg}]\propto\mathrm{Tr}(\Sigma_{fg}^2)\). Defining
+          \[
+            \mathrm{SNR}
+            =
+            \frac{\|\mathbb{E}[\Delta W]\|}{\sqrt{\mathbb{V}[\Delta W]}},
+          \]
+          we obtain \(\mathrm{SNR}_{bg}\to\infty\) versus a very low \(\mathrm{SNR}_{fg}\).
+          Under SGD, background weights therefore grow like \(\mathcal{O}(t)\), whereas
+          foreground weights behave like a noisy random walk \(\mathcal{O}(\sqrt{t})\).
+        </div>
+
+        <div class="notification is-light" style="margin-top:1rem;">
+          <p style="margin-bottom:0.5rem;">
+            <b>Implication.</b>
+            Early training preferentially routes global information into homogeneous
+            “register-like” background patches—the same mechanism behind
+            <i>spatial collapse</i>. Structured supervision (graph / segmentation / image–text)
+            raises the cost of this shortcut by forcing patch–global coupling to respect
+            lesion evidence or clinical semantics.
+          </p>
+          <p class="is-size-7" style="margin-bottom:0; color:#666;">
+            Full derivations are in Appendix&nbsp;A of the paper.
+          </p>
+        </div>
+
+        <div class="table-container" style="margin-top:1.25rem;">
+          <p class="has-text-centered is-size-6" style="margin-bottom:0.5rem; color:#555;">
+            Empirically, structured methods also improve foreground–background ranking of patch evidence
+            (pneumothorax FG/BG AUC):
+          </p>
+          <table class="table is-striped is-fullwidth is-size-6">
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>Mean AUC</th>
+                <th>Median AUC</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>ViT-B/16</td>
+                <td>0.287</td>
+                <td>0.249</td>
+              </tr>
+              <tr>
+                <td>ResNet50-L4</td>
+                <td>0.669</td>
+                <td>0.718</td>
+              </tr>
+              <tr>
+                <td>ViT Co-train</td>
+                <td><b>0.697</b></td>
+                <td><b>0.722</b></td>
+              </tr>
+              <tr>
+                <td>BiomedCLIP FT</td>
+                <td>0.431</td>
+                <td>0.420</td>
+              </tr>
+              <tr>
+                <td>LVM-Med FT</td>
+                <td>0.408</td>
+                <td>0.401</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
